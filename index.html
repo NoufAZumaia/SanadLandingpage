@@ -154,7 +154,7 @@ header.nav.scrolled{border-color:var(--line)}
 .flow-node h4{font-size:1.05rem}
 .flow-node p{color:var(--muted);font-size:.95rem}
 .flow-rail{position:relative}
-.flow-rail::before{position:absolute;inset-inline-start:19px;top:30px;bottom:30px;width:1.5px;background:var(--line-strong)}
+.flow-rail::before{content:"";position:absolute;inset-inline-start:19px;top:30px;bottom:30px;width:1.5px;background:var(--line-strong)}
 .sol-photo{aspect-ratio:5/4}
 .sol-photo .frame{height:100%}
 
@@ -487,6 +487,8 @@ footer{background:#0a221f;color:#9fb6b1;padding:54px 0 26px}
         <ul>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg> اطلب مساعدة من طالب متطوّع أو مُسجَّل ضمن نطاق حرمك الجامعي</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg> حدّد نوع الدعم: شرح مادة، قراءة نص، تنقل داخل الحرم، أو مساعدة إدارية</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg> تتبّع حالة طلبك وتواصل مع الطالب المساعد عبر التطبيق</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg> قيّم التجربة بعد انتهاء الجلسة لمساعدة الآخرين</li>
         </ul>
       </div>
     </div>
@@ -726,13 +728,12 @@ document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
 
 /* ============================================================
    إرسال النماذج مباشرةً إلى sanad@sanadorg.com دون فتح بريد المستخدم.
-   يعمل على الاستضافة الثابتة (GitHub Pages وغيرها) بدون أي سيرفر،
-   عبر خدمة FormSubmit — ولا يحتاج أي مفتاح.
+   يعمل على الاستضافة الثابتة (GitHub Pages) بدون أي سيرفر، عبر FormSubmit.
 
-   تفعيل لمرة واحدة فقط:
-   بعد رفع الموقع، يُرسَل أول طلب تجريبي من النموذج، ثم يُفتح بريد
-   sanad@sanadorg.com ويُضغط رابط التفعيل (Activate Form) القادم من FormSubmit.
-   بعدها تصل كل الطلبات تلقائياً إلى البريد.
+   ★ مهم — تفعيل لمرة واحدة فقط:
+   بعد رفع الموقع، أرسِل أول طلب، ثم افتح بريد sanad@sanadorg.com
+   (وتحقّق من المهملات/Spam) واضغط رابط «Activate Form» القادم من FormSubmit.
+   قبل هذه الخطوة سترفض الخدمة كل الطلبات. بعدها تصل كل الطلبات تلقائياً.
    ============================================================ */
 const SANAD_FORM_ENDPOINT = 'https://formsubmit.co/ajax/sanad@sanadorg.com';
 
@@ -774,6 +775,7 @@ document.querySelectorAll('.form-submit').forEach(btn=>{
 
     /* الإرسال المباشر */
     const orig=btn.textContent;
+    const restore=()=>{btn.disabled=false; btn.style.opacity=''; btn.textContent=orig;};
     btn.disabled=true; btn.style.opacity='.65'; btn.textContent='جارٍ الإرسال…';
     try{
       const res=await fetch(SANAD_FORM_ENDPOINT,{
@@ -781,16 +783,26 @@ document.querySelectorAll('.form-submit').forEach(btn=>{
         headers:{'Content-Type':'application/json','Accept':'application/json'},
         body:JSON.stringify(data)
       });
-      const out=await res.json();
+      const out=await res.json().catch(()=>({}));
       if(out.success===true || out.success==='true'){
         body.style.display='none';
         success.classList.add('show');
         success.scrollIntoView({behavior:'smooth',block:'center'});
-      }else{
-        throw new Error(out.message||'failed');
+        return;
       }
+      restore();
+      /* أول مرة: الخدمة تحتاج تفعيلاً لمرة واحدة من بريد sanad@sanadorg.com */
+      if(/activat/i.test(out.message||'')){
+        console.warn('[سند] FormSubmit يحتاج تفعيلاً لمرة واحدة: افتح بريد sanad@sanadorg.com (وتحقّق من المهملات/Spam) واضغط رابط «Activate Form»، ثم أعد الإرسال.');
+        err.textContent='يلزم تفعيل لمرة واحدة: افتح بريد sanad@sanadorg.com (وتحقّق من المهملات) واضغط رابط «Activate Form» القادم من FormSubmit، ثم أعد المحاولة.';
+      }else{
+        console.error('[سند] فشل الإرسال:', out);
+        err.textContent='تعذّر إرسال الطلب حالياً. يُرجى التأكد من الاتصال والمحاولة مرة أخرى، أو مراسلتنا على sanad@sanadorg.com.';
+      }
+      err.classList.add('show');
     }catch(e){
-      btn.disabled=false; btn.style.opacity=''; btn.textContent=orig;
+      console.error('[سند] خطأ في الإرسال:', e);
+      restore();
       err.textContent='تعذّر إرسال الطلب حالياً. يُرجى التأكد من الاتصال والمحاولة مرة أخرى، أو مراسلتنا على sanad@sanadorg.com.';
       err.classList.add('show');
     }
